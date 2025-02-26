@@ -5,6 +5,8 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.Group;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.AnchorPane;
@@ -17,6 +19,7 @@ import java.awt.Desktop;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import javax.swing.JFileChooser;
 import javax.swing.text.html.HTML;
 
@@ -117,8 +120,8 @@ public class Controller {
                 tabRoot.getChildren().add(
                         new MenuBar(
                         getFileMenu(
-                                _ -> System.out.println("save as"),
-                                _ -> openSaveFileChooser(stage, file)
+                                _ -> openSaveFileChooser(stage, file),
+                                _ -> saveFile(tab, file)
                         ))
                 );
 
@@ -139,10 +142,14 @@ public class Controller {
         stage.show();
     }
 
+    // function to open the file
     public void openFile(ActionEvent event) {
-        String buttonText = ((Button) event.getSource()).getText();
+        String buttonText = ((Button) event.getSource()).getText(); // it gets the text of the button that clicked it
+        // because there are two buttons who call this function (open file and open folder)
 
+        // we create a new file chooser
         JFileChooser fileChooser = new JFileChooser();
+        // setting the filter in function of which button clicks it
         if (buttonText == "open file") {
             fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         } else {
@@ -152,8 +159,10 @@ public class Controller {
         int result = fileChooser.showOpenDialog(null);
         File selectedFile = new File(fileChooser.getSelectedFile().getAbsolutePath());
 
+        // what happens after we click the approve option
         if (result == JFileChooser.APPROVE_OPTION) {
-            if (buttonText.equals("open file")) {
+            if (buttonText.equals("open file")) { // if we want to open file
+                // we add a new tab with the chosen file name
                 Tab tab = new Tab(selectedFile.getName());
                 tab.setClosable(true);
 
@@ -176,7 +185,7 @@ public class Controller {
                 tab.setContent(root);
 
                 tabPane.getTabs().add(tab);
-            } else {
+            } else { // if we want to open folder
                 try {
                     Desktop desktop = Desktop.getDesktop();
                     desktop.open(selectedFile);
@@ -184,7 +193,7 @@ public class Controller {
                     System.out.println(e.getMessage());
                 }
             }
-        } else if (result == JFileChooser.CANCEL_OPTION) {
+        } else if (result == JFileChooser.CANCEL_OPTION) { // for if we click on cancel
             System.out.println("cancelled");
         }
     }
@@ -195,5 +204,43 @@ public class Controller {
         else
             splitPane.setDividerPosition(0, .70);
         clickCount++;
+    }
+    public void saveFile(Tab tab, File file) {
+        if (file == null) {
+            System.out.println("no file selected");
+            return;
+        }
+
+        Node content = tab.getContent();
+        HTMLEditor editor = findHTMLEditor(content);
+
+        if (editor == null) {
+            System.out.println("could not find HTML editor");
+            return;
+        }
+
+        try (FileWriter writer = new FileWriter(file)) {
+            String text = extractPlainText(editor.getHtmlText());
+            writer.write(text);
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+    private HTMLEditor findHTMLEditor(Node node) {
+        if (node instanceof HTMLEditor) {
+            return (HTMLEditor) node;
+        }
+        if (node instanceof Parent) {
+            for (Node child : ((Parent) node).getChildrenUnmodifiable()) {
+                HTMLEditor editor = findHTMLEditor(child);
+                if (editor != null) {
+                    return editor;
+                }
+            }
+        }
+        return null;
+    }
+    private String extractPlainText(String htmlContent) {
+        return htmlContent.replaceAll("<[^>]*>", "").trim();
     }
 }
